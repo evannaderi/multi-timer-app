@@ -303,11 +303,13 @@ header h1 {
 
 .modal-content {
     background: var(--bg-primary);
-    margin: 5% auto;
+    margin: 2% auto;
     padding: 2rem;
     border-radius: 16px;
     width: 90%;
     max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
     box-shadow: var(--shadow-lg);
     animation: slideIn 0.3s ease-out;
 }
@@ -716,8 +718,10 @@ header h1 {
     }
 
     .modal-content {
-        margin: 10% auto;
+        margin: 1rem auto;
         width: 95%;
+        max-height: calc(100vh - 2rem);
+        padding: 1.5rem;
     }
 
     .interval-item {
