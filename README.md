@@ -14,7 +14,7 @@ A powerful, customizable timer application that lets you create and run multiple
 
 ## Live Demo
 
-[Visit the app →](https://your-vercel-url.vercel.app)
+[Visit the app →](https://multi-timer-app.vercel.app)
 
 ## Usage
 
