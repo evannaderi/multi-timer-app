@@ -213,8 +213,27 @@ class TimerManager {
             this.timers.set(timer.id, timer);
         }
 
+        // Initialize project in localStorage if it doesn't exist
+        if (project) {
+            const projectData = JSON.parse(localStorage.getItem('projectData') || '{}');
+            if (!projectData[project]) {
+                projectData[project] = {
+                    totalTime: 0,
+                    color: projectColor,
+                    sessions: {},
+                    dailyTime: {}
+                };
+                localStorage.setItem('projectData', JSON.stringify(projectData));
+            } else {
+                // Update color if it changed
+                projectData[project].color = projectColor;
+                localStorage.setItem('projectData', JSON.stringify(projectData));
+            }
+        }
+
         this.saveTimersToStorage();
         this.renderAllTimers();
+        this.updateDashboard();
         this.hideTimerModal();
     }
 
@@ -480,13 +499,14 @@ class TimerManager {
         
         let totalTimeToday = 0;
         let sessionsToday = 0;
-        const activeProjects = new Set();
+        const allProjects = new Set();
         const projectTimes = {};
 
+        // Count projects from stored data
         Object.entries(projectData).forEach(([project, data]) => {
+            allProjects.add(project);
             if (data.dailyTime && data.dailyTime[today]) {
                 totalTimeToday += data.dailyTime[today];
-                activeProjects.add(project);
                 projectTimes[project] = data.dailyTime[today];
             }
             if (data.sessions && data.sessions[today]) {
@@ -494,8 +514,15 @@ class TimerManager {
             }
         });
 
+        // Also count projects from timers
+        this.timers.forEach(timer => {
+            if (timer.project) {
+                allProjects.add(timer.project);
+            }
+        });
+
         document.getElementById('total-time-today').textContent = this.formatTime(totalTimeToday);
-        document.getElementById('active-projects').textContent = activeProjects.size;
+        document.getElementById('active-projects').textContent = allProjects.size;
         document.getElementById('sessions-today').textContent = sessionsToday;
 
         this.renderProjectChart(projectTimes);
@@ -543,12 +570,25 @@ class TimerManager {
         const container = document.getElementById('projects-details');
         container.innerHTML = '';
 
-        if (Object.keys(projectData).length === 0) {
+        // Also include projects from active timers even if no time tracked yet
+        const allProjects = { ...projectData };
+        this.timers.forEach(timer => {
+            if (timer.project && !allProjects[timer.project]) {
+                allProjects[timer.project] = {
+                    totalTime: 0,
+                    color: timer.projectColor,
+                    sessions: {},
+                    dailyTime: {}
+                };
+            }
+        });
+
+        if (Object.keys(allProjects).length === 0) {
             container.innerHTML = '<div class="no-data">No projects tracked yet</div>';
             return;
         }
 
-        Object.entries(projectData).forEach(([project, data]) => {
+        Object.entries(allProjects).forEach(([project, data]) => {
             const card = document.createElement('div');
             card.className = 'project-detail-card';
             card.style.borderLeft = `4px solid ${data.color}`;
