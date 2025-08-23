@@ -10,11 +10,43 @@
     <div class="app-container">
         <header>
             <h1>Multi-Timer</h1>
+            <nav class="header-nav">
+                <button id="timers-view-btn" class="nav-btn active">Timers</button>
+                <button id="dashboard-view-btn" class="nav-btn">Dashboard</button>
+            </nav>
             <button id="new-timer-btn" class="primary-btn">+ New Timer</button>
         </header>
 
         <main>
-            <div id="timers-container" class="timers-grid"></div>
+            <div id="timers-view" class="view active">
+                <div id="timers-container" class="timers-grid"></div>
+            </div>
+            <div id="dashboard-view" class="view">
+                <div class="dashboard-container">
+                    <div class="stats-overview">
+                        <div class="stat-card">
+                            <h3>Total Time Today</h3>
+                            <div id="total-time-today" class="stat-value">00:00:00</div>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Active Projects</h3>
+                            <div id="active-projects" class="stat-value">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Sessions Today</h3>
+                            <div id="sessions-today" class="stat-value">0</div>
+                        </div>
+                    </div>
+                    <div class="projects-breakdown">
+                        <h2>Time by Project</h2>
+                        <div id="projects-chart" class="projects-chart"></div>
+                    </div>
+                    <div class="projects-list">
+                        <h2>Project Details</h2>
+                        <div id="projects-details" class="projects-details"></div>
+                    </div>
+                </div>
+            </div>
         </main>
 
         <div id="timer-modal" class="modal">
@@ -25,6 +57,15 @@
                 <div class="form-group">
                     <label for="timer-name">Timer Name</label>
                     <input type="text" id="timer-name" placeholder="My Timer">
+                </div>
+
+                <div class="form-group">
+                    <label for="timer-project">Project</label>
+                    <div class="project-input-group">
+                        <input type="text" id="timer-project" placeholder="Enter project name" list="projects-list">
+                        <datalist id="projects-list"></datalist>
+                        <input type="color" id="timer-color" value="#4f46e5">
+                    </div>
                 </div>
 
                 <div class="form-group">

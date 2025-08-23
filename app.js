@@ -9,11 +9,22 @@ class TimerManager {
         this.loadTimersFromStorage();
         this.setupEventListeners();
         this.renderAllTimers();
+        this.updateDashboard();
+        this.startDashboardUpdater();
     }
 
     setupEventListeners() {
         document.getElementById('new-timer-btn').addEventListener('click', () => {
             this.showTimerModal();
+        });
+
+        document.getElementById('timers-view-btn').addEventListener('click', () => {
+            this.showView('timers');
+        });
+
+        document.getElementById('dashboard-view-btn').addEventListener('click', () => {
+            this.showView('dashboard');
+            this.updateDashboard();
         });
 
         const modal = document.getElementById('timer-modal');
@@ -43,14 +54,30 @@ class TimerManager {
         });
     }
 
+    showView(viewName) {
+        document.querySelectorAll('.view').forEach(view => {
+            view.classList.remove('active');
+        });
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+
+        document.getElementById(`${viewName}-view`).classList.add('active');
+        document.getElementById(`${viewName}-view-btn`).classList.add('active');
+    }
+
     showTimerModal(timerId = null) {
         const modal = document.getElementById('timer-modal');
         modal.style.display = 'block';
         modal.dataset.timerId = timerId || '';
 
+        this.populateProjectsList();
+
         if (timerId && this.timers.has(timerId)) {
             const timer = this.timers.get(timerId);
             document.getElementById('timer-name').value = timer.name;
+            document.getElementById('timer-project').value = timer.project || '';
+            document.getElementById('timer-color').value = timer.projectColor || '#4f46e5';
             document.getElementById('infinite-repeat').checked = timer.infiniteRepeat;
             document.getElementById('repeat-cycles').value = timer.totalCycles > 0 ? timer.totalCycles : 1;
             document.getElementById('repeat-cycles').disabled = timer.infiniteRepeat;
@@ -59,6 +86,8 @@ class TimerManager {
             this.renderIntervals(timer.intervals);
         } else {
             document.getElementById('timer-name').value = '';
+            document.getElementById('timer-project').value = '';
+            document.getElementById('timer-color').value = '#4f46e5';
             document.getElementById('infinite-repeat').checked = true;
             document.getElementById('repeat-cycles').value = 1;
             document.getElementById('repeat-cycles').disabled = true;
@@ -69,6 +98,18 @@ class TimerManager {
                 { duration: 5 * 60, type: 'break', label: 'Break' }
             ]);
         }
+    }
+
+    populateProjectsList() {
+        const projectData = JSON.parse(localStorage.getItem('projectData') || '{}');
+        const datalist = document.getElementById('projects-list');
+        datalist.innerHTML = '';
+        
+        Object.keys(projectData).forEach(project => {
+            const option = document.createElement('option');
+            option.value = project;
+            datalist.appendChild(option);
+        });
     }
 
     hideTimerModal() {
@@ -137,6 +178,8 @@ class TimerManager {
         const modal = document.getElementById('timer-modal');
         const timerId = modal.dataset.timerId;
         const name = document.getElementById('timer-name').value || 'Unnamed Timer';
+        const project = document.getElementById('timer-project').value || '';
+        const projectColor = document.getElementById('timer-color').value || '#4f46e5';
         const intervals = this.getIntervalsFromModal();
         const infiniteRepeat = document.getElementById('infinite-repeat').checked;
         const totalCycles = infiniteRepeat ? -1 : (parseInt(document.getElementById('repeat-cycles').value) || 1);
@@ -146,6 +189,8 @@ class TimerManager {
         if (timerId && this.timers.has(timerId)) {
             const timer = this.timers.get(timerId);
             timer.name = name;
+            timer.project = project;
+            timer.projectColor = projectColor;
             timer.updateIntervals(intervals);
             timer.updateCycles(totalCycles);
             timer.infiniteRepeat = infiniteRepeat;
@@ -154,6 +199,8 @@ class TimerManager {
         } else {
             const timer = new Timer({
                 name,
+                project,
+                projectColor,
                 intervals,
                 totalCycles,
                 infiniteRepeat,
@@ -214,12 +261,19 @@ class TimerManager {
         div.className = 'timer-card';
         div.id = `timer-${timer.id}`;
         
+        if (timer.project) {
+            div.style.borderLeft = `4px solid ${timer.projectColor}`;
+        }
+        
         const currentInterval = timer.getCurrentInterval();
         const progress = timer.getProgress();
         
         div.innerHTML = `
             <div class="timer-header">
-                <h3>${timer.name}</h3>
+                <div>
+                    <h3>${timer.name}</h3>
+                    ${timer.project ? `<div class="timer-project" style="color: ${timer.projectColor}">${timer.project}</div>` : ''}
+                </div>
                 <div class="timer-actions">
                     <button class="icon-btn edit-btn" data-id="${timer.id}" title="Edit">✏️</button>
                     <button class="icon-btn delete-btn" data-id="${timer.id}" title="Delete">🗑️</button>
@@ -418,6 +472,119 @@ class TimerManager {
                 console.error('Failed to load timers:', e);
             }
         }
+    }
+
+    updateDashboard() {
+        const projectData = JSON.parse(localStorage.getItem('projectData') || '{}');
+        const today = new Date().toDateString();
+        
+        let totalTimeToday = 0;
+        let sessionsToday = 0;
+        const activeProjects = new Set();
+        const projectTimes = {};
+
+        Object.entries(projectData).forEach(([project, data]) => {
+            if (data.dailyTime && data.dailyTime[today]) {
+                totalTimeToday += data.dailyTime[today];
+                activeProjects.add(project);
+                projectTimes[project] = data.dailyTime[today];
+            }
+            if (data.sessions && data.sessions[today]) {
+                sessionsToday += data.sessions[today].length;
+            }
+        });
+
+        document.getElementById('total-time-today').textContent = this.formatTime(totalTimeToday);
+        document.getElementById('active-projects').textContent = activeProjects.size;
+        document.getElementById('sessions-today').textContent = sessionsToday;
+
+        this.renderProjectChart(projectTimes);
+        this.renderProjectDetails(projectData);
+    }
+
+    formatTime(seconds) {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    renderProjectChart(projectTimes) {
+        const container = document.getElementById('projects-chart');
+        container.innerHTML = '';
+
+        if (Object.keys(projectTimes).length === 0) {
+            container.innerHTML = '<div class="no-data">No project data for today</div>';
+            return;
+        }
+
+        const total = Object.values(projectTimes).reduce((a, b) => a + b, 0);
+        const projectData = JSON.parse(localStorage.getItem('projectData') || '{}');
+
+        Object.entries(projectTimes).forEach(([project, time]) => {
+            const percentage = (time / total) * 100;
+            const bar = document.createElement('div');
+            bar.className = 'project-bar';
+            bar.innerHTML = `
+                <div class="project-bar-label">
+                    <span class="project-name">${project}</span>
+                    <span class="project-time">${this.formatTime(time)}</span>
+                </div>
+                <div class="project-bar-track">
+                    <div class="project-bar-fill" style="width: ${percentage}%; background: ${projectData[project]?.color || '#4f46e5'}"></div>
+                </div>
+                <div class="project-percentage">${percentage.toFixed(1)}%</div>
+            `;
+            container.appendChild(bar);
+        });
+    }
+
+    renderProjectDetails(projectData) {
+        const container = document.getElementById('projects-details');
+        container.innerHTML = '';
+
+        if (Object.keys(projectData).length === 0) {
+            container.innerHTML = '<div class="no-data">No projects tracked yet</div>';
+            return;
+        }
+
+        Object.entries(projectData).forEach(([project, data]) => {
+            const card = document.createElement('div');
+            card.className = 'project-detail-card';
+            card.style.borderLeft = `4px solid ${data.color}`;
+            
+            const totalHours = (data.totalTime / 3600).toFixed(1);
+            const sessionsCount = Object.values(data.sessions || {}).flat().length;
+            
+            card.innerHTML = `
+                <div class="project-detail-header">
+                    <h3 style="color: ${data.color}">${project}</h3>
+                </div>
+                <div class="project-stats">
+                    <div class="project-stat">
+                        <span class="stat-label">Total Time</span>
+                        <span class="stat-value">${totalHours}h</span>
+                    </div>
+                    <div class="project-stat">
+                        <span class="stat-label">Sessions</span>
+                        <span class="stat-value">${sessionsCount}</span>
+                    </div>
+                    <div class="project-stat">
+                        <span class="stat-label">Avg Session</span>
+                        <span class="stat-value">${sessionsCount > 0 ? Math.round(data.totalTime / sessionsCount / 60) : 0}m</span>
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    startDashboardUpdater() {
+        setInterval(() => {
+            if (document.getElementById('dashboard-view').classList.contains('active')) {
+                this.updateDashboard();
+            }
+        }, 5000);
     }
 }
 

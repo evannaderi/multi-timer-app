@@ -2,6 +2,8 @@ class Timer {
     constructor(config = {}) {
         this.id = config.id || Date.now().toString();
         this.name = config.name || 'Timer';
+        this.project = config.project || '';
+        this.projectColor = config.projectColor || '#4f46e5';
         this.intervals = config.intervals || [
             { duration: 25 * 60, type: 'work', label: 'Work' },
             { duration: 5 * 60, type: 'break', label: 'Break' }
@@ -16,6 +18,8 @@ class Timer {
         this.isRunning = false;
         this.isPaused = false;
         this.intervalId = null;
+        this.sessionStartTime = null;
+        this.totalTimeSpent = 0;
         this.onUpdate = config.onUpdate || (() => {});
         this.onComplete = config.onComplete || (() => {});
         this.onIntervalComplete = config.onIntervalComplete || (() => {});
@@ -26,6 +30,10 @@ class Timer {
         
         this.isRunning = true;
         this.isPaused = false;
+        
+        if (!this.sessionStartTime) {
+            this.sessionStartTime = Date.now();
+        }
         
         this.intervalId = setInterval(() => {
             this.tick();
@@ -41,6 +49,13 @@ class Timer {
     }
 
     stop() {
+        if (this.sessionStartTime) {
+            const sessionDuration = Math.floor((Date.now() - this.sessionStartTime) / 1000);
+            this.totalTimeSpent += sessionDuration;
+            this.saveProjectTime(sessionDuration);
+            this.sessionStartTime = null;
+        }
+        
         this.isRunning = false;
         this.isPaused = false;
         this.currentIntervalIndex = 0;
@@ -53,6 +68,41 @@ class Timer {
         }
         
         this.onUpdate();
+    }
+
+    saveProjectTime(duration) {
+        if (!this.project) return;
+        
+        const projectData = JSON.parse(localStorage.getItem('projectData') || '{}');
+        const today = new Date().toDateString();
+        
+        if (!projectData[this.project]) {
+            projectData[this.project] = {
+                totalTime: 0,
+                color: this.projectColor,
+                sessions: {},
+                dailyTime: {}
+            };
+        }
+        
+        projectData[this.project].totalTime += duration;
+        projectData[this.project].color = this.projectColor;
+        
+        if (!projectData[this.project].dailyTime[today]) {
+            projectData[this.project].dailyTime[today] = 0;
+        }
+        projectData[this.project].dailyTime[today] += duration;
+        
+        if (!projectData[this.project].sessions[today]) {
+            projectData[this.project].sessions[today] = [];
+        }
+        projectData[this.project].sessions[today].push({
+            duration,
+            timestamp: Date.now(),
+            timerName: this.name
+        });
+        
+        localStorage.setItem('projectData', JSON.stringify(projectData));
     }
 
     tick() {
@@ -125,6 +175,8 @@ class Timer {
         return {
             id: this.id,
             name: this.name,
+            project: this.project,
+            projectColor: this.projectColor,
             intervals: this.intervals,
             totalCycles: this.totalCycles,
             infiniteRepeat: this.infiniteRepeat,
@@ -134,7 +186,8 @@ class Timer {
             currentCycle: this.currentCycle,
             remainingTime: this.remainingTime,
             isRunning: this.isRunning,
-            isPaused: this.isPaused
+            isPaused: this.isPaused,
+            totalTimeSpent: this.totalTimeSpent
         };
     }
 
@@ -142,6 +195,8 @@ class Timer {
         const timer = new Timer({
             id: data.id,
             name: data.name,
+            project: data.project || '',
+            projectColor: data.projectColor || '#4f46e5',
             intervals: data.intervals,
             totalCycles: data.totalCycles,
             infiniteRepeat: data.infiniteRepeat !== undefined ? data.infiniteRepeat : true,
@@ -153,6 +208,7 @@ class Timer {
         timer.currentIntervalIndex = data.currentIntervalIndex || 0;
         timer.currentCycle = data.currentCycle || 1;
         timer.remainingTime = data.remainingTime || timer.intervals[0].duration;
+        timer.totalTimeSpent = data.totalTimeSpent || 0;
         
         if (data.isRunning && !data.isPaused) {
             timer.start();
