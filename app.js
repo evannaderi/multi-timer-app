@@ -39,6 +39,14 @@ class TimerManager {
         cancelBtn.addEventListener('click', () => this.hideTimerModal());
         saveBtn.addEventListener('click', () => this.saveTimerFromModal());
         addIntervalBtn.addEventListener('click', () => this.addIntervalInput());
+        
+        // Add preset button listeners when modal opens
+        modal.addEventListener('click', (e) => {
+            if (e.target.classList.contains('preset-btn')) {
+                const preset = e.target.dataset.preset;
+                this.applyPreset(preset);
+            }
+        });
 
         infiniteCheckbox.addEventListener('change', (e) => {
             cyclesInput.disabled = e.target.checked;
@@ -93,10 +101,19 @@ class TimerManager {
             document.getElementById('repeat-cycles').disabled = true;
             document.getElementById('work-notification-text').value = '';
             document.getElementById('break-notification-text').value = '';
-            this.renderIntervals([
-                { duration: 25 * 60, type: 'work', label: 'Work' },
-                { duration: 5 * 60, type: 'break', label: 'Break' }
-            ]);
+            // Check if user wants 20-20-20 rule preset
+            const use202020 = window.location.hash === '#202020';
+            if (use202020) {
+                this.renderIntervals([
+                    { duration: 20 * 60, type: 'work', label: 'Look at screen' },
+                    { duration: 20, type: 'break', label: 'Look 20ft away' }
+                ]);
+            } else {
+                this.renderIntervals([
+                    { duration: 25 * 60, type: 'work', label: 'Work' },
+                    { duration: 5 * 60, type: 'break', label: 'Break' }
+                ]);
+            }
         }
     }
 
@@ -112,6 +129,44 @@ class TimerManager {
         });
     }
 
+    applyPreset(preset) {
+        let intervals = [];
+        let notificationWork = '';
+        let notificationBreak = '';
+        
+        switch(preset) {
+            case 'pomodoro':
+                intervals = [
+                    { duration: 25 * 60, type: 'work', label: 'Focus' },
+                    { duration: 5 * 60, type: 'break', label: 'Short Break' }
+                ];
+                break;
+            case '202020':
+                intervals = [
+                    { duration: 20 * 60, type: 'work', label: 'Screen Time' },
+                    { duration: 20, type: 'break', label: 'Eye Rest (20ft)' }
+                ];
+                notificationWork = 'Time to rest your eyes!';
+                notificationBreak = 'You can look back at your screen';
+                document.getElementById('timer-name').value = '20-20-20 Eye Care';
+                break;
+            case '52-17':
+                intervals = [
+                    { duration: 52 * 60, type: 'work', label: 'Deep Work' },
+                    { duration: 17 * 60, type: 'break', label: 'Recovery' }
+                ];
+                break;
+        }
+        
+        this.renderIntervals(intervals);
+        if (notificationWork) {
+            document.getElementById('work-notification-text').value = notificationWork;
+        }
+        if (notificationBreak) {
+            document.getElementById('break-notification-text').value = notificationBreak;
+        }
+    }
+
     hideTimerModal() {
         const modal = document.getElementById('timer-modal');
         modal.style.display = 'none';
@@ -123,11 +178,15 @@ class TimerManager {
         container.innerHTML = '';
 
         intervals.forEach((interval, index) => {
+            const minutes = Math.floor(interval.duration / 60);
+            const seconds = interval.duration % 60;
+            const timeValue = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            
             const div = document.createElement('div');
             div.className = 'interval-item';
             div.innerHTML = `
                 <input type="text" class="interval-label" placeholder="Label" value="${interval.label}">
-                <input type="number" class="interval-duration" placeholder="Minutes" min="1" value="${Math.floor(interval.duration / 60)}">
+                <input type="text" class="interval-duration" placeholder="MM:SS" pattern="[0-9]+:[0-9]{2}" value="${timeValue}">
                 <select class="interval-type">
                     <option value="work" ${interval.type === 'work' ? 'selected' : ''}>Work</option>
                     <option value="break" ${interval.type === 'break' ? 'selected' : ''}>Break</option>
@@ -148,7 +207,7 @@ class TimerManager {
     addIntervalInput() {
         const container = document.getElementById('intervals-list');
         const currentIntervals = this.getIntervalsFromModal();
-        currentIntervals.push({ duration: 5 * 60, type: 'break', label: 'Break' });
+        currentIntervals.push({ duration: 20, type: 'break', label: 'Break' });
         this.renderIntervals(currentIntervals);
     }
 
@@ -166,7 +225,18 @@ class TimerManager {
         
         items.forEach(item => {
             const label = item.querySelector('.interval-label').value || 'Interval';
-            const duration = parseInt(item.querySelector('.interval-duration').value) * 60 || 60;
+            const timeValue = item.querySelector('.interval-duration').value || '1:00';
+            
+            // Parse MM:SS or just minutes
+            let duration;
+            if (timeValue.includes(':')) {
+                const [minutes, seconds] = timeValue.split(':').map(v => parseInt(v) || 0);
+                duration = minutes * 60 + seconds;
+            } else {
+                // Backward compatibility: if just a number, treat as minutes
+                duration = parseInt(timeValue) * 60 || 60;
+            }
+            
             const type = item.querySelector('.interval-type').value;
             intervals.push({ duration, type, label });
         });

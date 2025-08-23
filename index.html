@@ -70,8 +70,14 @@
 
                 <div class="form-group">
                     <label>Interval Pattern</label>
+                    <div class="preset-buttons">
+                        <button type="button" class="preset-btn" data-preset="pomodoro">Pomodoro (25/5)</button>
+                        <button type="button" class="preset-btn" data-preset="202020">20-20-20 Rule</button>
+                        <button type="button" class="preset-btn" data-preset="52-17">52/17 Method</button>
+                    </div>
                     <div id="intervals-list" class="intervals-list"></div>
                     <button id="add-interval-btn" class="secondary-btn">+ Add Interval</button>
+                    <span class="help-text">Enter time as minutes:seconds (e.g., 20:00 for 20 minutes, 0:20 for 20 seconds)</span>
                 </div>
 
                 <div class="form-group">
