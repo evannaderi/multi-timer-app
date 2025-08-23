@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Timer App</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <h1>Multi-Timer</h1>
+            <button id="new-timer-btn" class="primary-btn">+ New Timer</button>
+        </header>
+
+        <main>
+            <div id="timers-container" class="timers-grid"></div>
+        </main>
+
+        <div id="timer-modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Configure Timer</h2>
+                
+                <div class="form-group">
+                    <label for="timer-name">Timer Name</label>
+                    <input type="text" id="timer-name" placeholder="My Timer">
+                </div>
+
+                <div class="form-group">
+                    <label>Interval Pattern</label>
+                    <div id="intervals-list" class="intervals-list"></div>
+                    <button id="add-interval-btn" class="secondary-btn">+ Add Interval</button>
+                </div>
+
+                <div class="form-group">
+                    <label for="repeat-cycles">Repeat Cycles</label>
+                    <div class="repeat-controls">
+                        <input type="number" id="repeat-cycles" min="1" value="1" disabled>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="infinite-repeat" checked>
+                            <span>Infinite</span>
+                        </label>
+                    </div>
+                    <span class="help-text">Number of times to repeat the entire pattern</span>
+                </div>
+
+                <div class="form-group">
+                    <label>Notification Messages (optional)</label>
+                    <div class="notification-inputs">
+                        <input type="text" id="work-notification-text" placeholder="Work complete message">
+                        <input type="text" id="break-notification-text" placeholder="Break complete message">
+                    </div>
+                    <span class="help-text">Leave empty for default messages</span>
+                </div>
+
+                <div class="modal-actions">
+                    <button id="save-timer-btn" class="primary-btn">Save Timer</button>
+                    <button id="cancel-timer-btn" class="secondary-btn">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="timer.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
