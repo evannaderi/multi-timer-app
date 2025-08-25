@@ -8,6 +8,7 @@ class TimerManager {
     init() {
         this.loadTimersFromStorage();
         this.setupEventListeners();
+        this.setupVisibilityHandler();
         this.renderAllTimers();
         this.updateDashboard();
         this.startDashboardUpdater();
@@ -58,6 +59,20 @@ class TimerManager {
         window.addEventListener('click', (e) => {
             if (e.target === modal) {
                 this.hideTimerModal();
+            }
+        });
+    }
+
+    setupVisibilityHandler() {
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                // Tab became visible, force update all running timers
+                this.timers.forEach(timer => {
+                    if (timer.isRunning && !timer.isPaused) {
+                        // Force a tick to catch up with any missed time
+                        timer.tick();
+                    }
+                });
             }
         });
     }

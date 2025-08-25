@@ -20,6 +20,7 @@ class Timer {
         this.intervalId = null;
         this.sessionStartTime = null;
         this.totalTimeSpent = 0;
+        this.lastTickTime = null;
         this.onUpdate = config.onUpdate || (() => {});
         this.onComplete = config.onComplete || (() => {});
         this.onIntervalComplete = config.onIntervalComplete || (() => {});
@@ -35,9 +36,12 @@ class Timer {
             this.sessionStartTime = Date.now();
         }
         
+        // Always reset lastTickTime when starting/resuming
+        this.lastTickTime = Date.now();
+        
         this.intervalId = setInterval(() => {
             this.tick();
-        }, 1000);
+        }, 100);
     }
 
     pause() {
@@ -46,6 +50,7 @@ class Timer {
         this.isPaused = true;
         clearInterval(this.intervalId);
         this.intervalId = null;
+        this.lastTickTime = null;
     }
 
     stop() {
@@ -106,13 +111,19 @@ class Timer {
     }
 
     tick() {
-        this.remainingTime--;
+        const now = Date.now();
+        const elapsed = Math.floor((now - this.lastTickTime) / 1000);
         
-        if (this.remainingTime <= 0) {
-            this.handleIntervalComplete();
+        if (elapsed >= 1) {
+            this.remainingTime -= elapsed;
+            this.lastTickTime = now - ((now - this.lastTickTime) % 1000);
+            
+            if (this.remainingTime <= 0) {
+                this.handleIntervalComplete();
+            }
+            
+            this.onUpdate();
         }
-        
-        this.onUpdate();
     }
 
     handleIntervalComplete() {
