@@ -1,3 +1,29 @@
+// Initialize shared Web Worker for all timers
+let sharedWorker = null;
+const workerCallbacks = new Map();
+
+function getOrCreateWorker() {
+    if (!sharedWorker) {
+        sharedWorker = new Worker('timer-worker.js');
+        sharedWorker.addEventListener('message', (e) => {
+            const { type, id, remainingTime, timestamp } = e.data;
+            
+            if (type === 'tick' && workerCallbacks.has(id)) {
+                const callbacks = workerCallbacks.get(id);
+                if (callbacks.onTick) {
+                    callbacks.onTick(remainingTime, timestamp);
+                }
+            } else if (type === 'intervalComplete' && workerCallbacks.has(id)) {
+                const callbacks = workerCallbacks.get(id);
+                if (callbacks.onIntervalComplete) {
+                    callbacks.onIntervalComplete();
+                }
+            }
+        });
+    }
+    return sharedWorker;
+}
+
 class Timer {
     constructor(config = {}) {
         this.id = config.id || Date.now().toString();
@@ -21,11 +47,63 @@ class Timer {
         this.sessionStartTime = null;
         this.totalTimeSpent = 0;
         this.lastTickTime = null;
+        this.expectedTime = null;
         this.onUpdate = config.onUpdate || (() => {});
         this.onComplete = config.onComplete || (() => {});
         this.onIntervalComplete = config.onIntervalComplete || (() => {});
+        
+        // Initialize Web Worker for this timer
+        this.worker = getOrCreateWorker();
+        this.useWorker = true;
+        this.setupWorkerCallbacks();
+        
+        // Fallback timer for when worker fails
+        this.fallbackIntervalId = null;
+        
+        // Wake Lock API to prevent device sleep
+        this.wakeLock = null;
     }
 
+    setupWorkerCallbacks() {
+        workerCallbacks.set(this.id, {
+            onTick: (remainingTime, timestamp) => {
+                this.remainingTime = remainingTime;
+                this.lastTickTime = timestamp;
+                
+                if (remainingTime === 0) {
+                    this.handleIntervalComplete();
+                }
+                
+                this.onUpdate();
+            },
+            onIntervalComplete: () => {
+                // Already handled in onTick when remainingTime === 0
+            }
+        });
+    }
+    
+    async requestWakeLock() {
+        if ('wakeLock' in navigator) {
+            try {
+                this.wakeLock = await navigator.wakeLock.request('screen');
+                console.log('Wake Lock acquired');
+                
+                this.wakeLock.addEventListener('release', () => {
+                    console.log('Wake Lock released');
+                });
+            } catch (err) {
+                console.log('Wake Lock failed:', err);
+            }
+        }
+    }
+    
+    releaseWakeLock() {
+        if (this.wakeLock) {
+            this.wakeLock.release();
+            this.wakeLock = null;
+        }
+    }
+    
     start() {
         if (this.isRunning && !this.isPaused) return;
         
@@ -38,9 +116,27 @@ class Timer {
         
         // Always reset lastTickTime when starting/resuming
         this.lastTickTime = Date.now();
+        this.expectedTime = Date.now() + 1000;
         
+        // Request wake lock to prevent sleep
+        this.requestWakeLock();
+        
+        // Start Web Worker timer
+        if (this.useWorker) {
+            this.worker.postMessage({
+                type: 'create',
+                id: this.id,
+                data: { duration: this.remainingTime }
+            });
+            this.worker.postMessage({
+                type: 'start',
+                id: this.id
+            });
+        }
+        
+        // Also use regular interval as fallback with drift correction
         this.intervalId = setInterval(() => {
-            this.tick();
+            this.tickWithDriftCorrection();
         }, 100);
     }
 
@@ -48,9 +144,22 @@ class Timer {
         if (!this.isRunning || this.isPaused) return;
         
         this.isPaused = true;
+        
+        // Pause Web Worker timer
+        if (this.useWorker) {
+            this.worker.postMessage({
+                type: 'pause',
+                id: this.id
+            });
+        }
+        
         clearInterval(this.intervalId);
         this.intervalId = null;
         this.lastTickTime = null;
+        this.expectedTime = null;
+        
+        // Release wake lock when paused
+        this.releaseWakeLock();
     }
 
     stop() {
@@ -67,10 +176,23 @@ class Timer {
         this.currentCycle = 1;
         this.remainingTime = this.intervals[0].duration;
         
+        // Stop Web Worker timer
+        if (this.useWorker) {
+            this.worker.postMessage({
+                type: 'stop',
+                id: this.id
+            });
+        }
+        
         if (this.intervalId) {
             clearInterval(this.intervalId);
             this.intervalId = null;
         }
+        
+        this.expectedTime = null;
+        
+        // Release wake lock when stopped
+        this.releaseWakeLock();
         
         this.onUpdate();
     }
@@ -125,6 +247,52 @@ class Timer {
             this.onUpdate();
         }
     }
+    
+    tickWithDriftCorrection() {
+        if (!this.isRunning || this.isPaused) return;
+        
+        const now = Date.now();
+        
+        // Use expected time for drift correction
+        if (this.expectedTime) {
+            const drift = now - this.expectedTime;
+            
+            // If drift is more than 1 second, correct it
+            if (Math.abs(drift) > 1000) {
+                console.log('Correcting timer drift:', drift, 'ms');
+                const missedSeconds = Math.floor(Math.abs(drift) / 1000);
+                if (!this.useWorker) {
+                    // Only adjust if worker isn't handling it
+                    this.remainingTime = Math.max(0, this.remainingTime - missedSeconds);
+                }
+                this.expectedTime = now + 1000;
+            }
+        }
+        
+        // Fallback tick if worker isn't updating
+        const timeSinceLastTick = now - this.lastTickTime;
+        if (!this.useWorker || timeSinceLastTick > 1500) {
+            const elapsed = Math.floor(timeSinceLastTick / 1000);
+            
+            if (elapsed >= 1) {
+                if (!this.useWorker) {
+                    this.remainingTime -= elapsed;
+                }
+                this.lastTickTime = now - (timeSinceLastTick % 1000);
+                
+                if (this.remainingTime <= 0) {
+                    this.handleIntervalComplete();
+                }
+                
+                this.onUpdate();
+            }
+        }
+        
+        // Update expected time for next tick
+        if (!this.expectedTime || now >= this.expectedTime) {
+            this.expectedTime = now + 1000;
+        }
+    }
 
     handleIntervalComplete() {
         this.onIntervalComplete(this.getCurrentInterval());
@@ -176,6 +344,15 @@ class Timer {
         if (!this.isRunning) {
             this.remainingTime = this.intervals[0].duration;
         }
+        
+        // Update Web Worker if timer is active
+        if (this.useWorker && this.isRunning) {
+            this.worker.postMessage({
+                type: 'updateDuration',
+                id: this.id,
+                data: { duration: this.remainingTime }
+            });
+        }
     }
 
     updateCycles(cycles) {
@@ -202,6 +379,25 @@ class Timer {
         };
     }
 
+    destroy() {
+        // Clean up Web Worker
+        if (this.useWorker) {
+            this.worker.postMessage({
+                type: 'destroy',
+                id: this.id
+            });
+            workerCallbacks.delete(this.id);
+        }
+        
+        // Clean up intervals
+        if (this.intervalId) {
+            clearInterval(this.intervalId);
+        }
+        
+        // Release wake lock
+        this.releaseWakeLock();
+    }
+    
     static fromJSON(data, callbacks = {}) {
         const timer = new Timer({
             id: data.id,

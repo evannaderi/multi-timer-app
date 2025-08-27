@@ -111,5 +111,38 @@
 
     <script src="timer.js"></script>
     <script src="app.js"></script>
+    <script>
+        // Register service worker for offline support and background reliability
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('Service Worker registered:', registration);
+                        
+                        // Request periodic background sync if available
+                        if ('periodicSync' in registration) {
+                            registration.periodicSync.register('timer-sync', {
+                                minInterval: 60 * 1000 // 1 minute
+                            }).catch(err => console.log('Periodic sync registration failed:', err));
+                        }
+                    })
+                    .catch(err => console.log('Service Worker registration failed:', err));
+            });
+            
+            // Listen for sync messages from service worker
+            navigator.serviceWorker.addEventListener('message', (event) => {
+                if (event.data.type === 'SYNC_REQUEST') {
+                    // Force update all timers
+                    if (window.timerManager) {
+                        window.timerManager.timers.forEach(timer => {
+                            if (timer.isRunning) {
+                                timer.onUpdate();
+                            }
+                        });
+                    }
+                }
+            });
+        }
+    </script>
 </body>
 </html>

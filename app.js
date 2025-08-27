@@ -9,6 +9,7 @@ class TimerManager {
         this.loadTimersFromStorage();
         this.setupEventListeners();
         this.setupVisibilityHandler();
+        this.setupHeartbeatSystem();
         this.renderAllTimers();
         this.updateDashboard();
         this.startDashboardUpdater();
@@ -63,16 +64,107 @@ class TimerManager {
         });
     }
 
-    setupVisibilityHandler() {
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) {
-                // Tab became visible, force update all running timers
-                this.timers.forEach(timer => {
-                    if (timer.isRunning && !timer.isPaused) {
-                        // Force a tick to catch up with any missed time
-                        timer.tick();
+    setupHeartbeatSystem() {
+        // Heartbeat every second to ensure timers stay accurate
+        setInterval(() => {
+            this.timers.forEach(timer => {
+                if (timer.isRunning && !timer.isPaused) {
+                    // Check if timer appears to be stuck
+                    const now = Date.now();
+                    const timeSinceLastUpdate = now - (timer.lastTickTime || now);
+                    
+                    if (timeSinceLastUpdate > 2000) {
+                        console.log(`Timer ${timer.id} appears stuck, forcing update`);
+                        const missedSeconds = Math.floor(timeSinceLastUpdate / 1000);
+                        
+                        if (!timer.useWorker) {
+                            timer.remainingTime = Math.max(0, timer.remainingTime - missedSeconds);
+                        }
+                        
+                        timer.lastTickTime = now;
+                        timer.onUpdate();
+                        
+                        // Check for completion
+                        if (timer.remainingTime === 0) {
+                            timer.handleIntervalComplete();
+                        }
                     }
-                });
+                }
+            });
+        }, 1000);
+        
+        // Keep worker alive with periodic heartbeat
+        setInterval(() => {
+            if (window.sharedWorker) {
+                window.sharedWorker.postMessage({ type: 'heartbeat' });
+            }
+        }, 5000);
+    }
+    
+    setupVisibilityHandler() {
+        let hiddenTime = null;
+        
+        // Track when tab becomes hidden
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                // Tab became hidden, record the time
+                hiddenTime = Date.now();
+                console.log('Tab hidden at:', hiddenTime);
+            } else {
+                // Tab became visible again
+                if (hiddenTime) {
+                    const hiddenDuration = Date.now() - hiddenTime;
+                    console.log('Tab was hidden for:', hiddenDuration, 'ms');
+                    
+                    // Correct all running timers for the time spent hidden
+                    this.timers.forEach(timer => {
+                        if (timer.isRunning && !timer.isPaused) {
+                            // Calculate how many seconds were missed
+                            const missedSeconds = Math.floor(hiddenDuration / 1000);
+                            
+                            if (missedSeconds > 0) {
+                                console.log(`Correcting timer ${timer.id} by ${missedSeconds} seconds`);
+                                
+                                // If using worker, it should have kept accurate time
+                                // This is a fallback correction
+                                if (!timer.useWorker) {
+                                    timer.remainingTime = Math.max(0, timer.remainingTime - missedSeconds);
+                                    
+                                    // Check if timer should have completed
+                                    while (timer.remainingTime === 0 && timer.isRunning) {
+                                        timer.handleIntervalComplete();
+                                    }
+                                }
+                                
+                                // Force UI update
+                                timer.onUpdate();
+                            }
+                        }
+                    });
+                    
+                    hiddenTime = null;
+                }
+            }
+        });
+        
+        // Also handle focus/blur events as additional safeguard
+        window.addEventListener('blur', () => {
+            if (!hiddenTime) {
+                hiddenTime = Date.now();
+            }
+        });
+        
+        window.addEventListener('focus', () => {
+            if (hiddenTime) {
+                const hiddenDuration = Date.now() - hiddenTime;
+                if (hiddenDuration > 2000) { // Only correct if hidden for more than 2 seconds
+                    this.timers.forEach(timer => {
+                        if (timer.isRunning && !timer.isPaused) {
+                            timer.onUpdate();
+                        }
+                    });
+                }
+                hiddenTime = null;
             }
         });
     }
