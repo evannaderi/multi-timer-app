@@ -12,6 +12,7 @@ class TimerManager {
         this.setupHeartbeatSystem();
         this.renderAllTimers();
         this.updateDashboard();
+        this.updateWeeklyGoals();
         this.startDashboardUpdater();
     }
 
@@ -27,6 +28,7 @@ class TimerManager {
         document.getElementById('dashboard-view-btn').addEventListener('click', () => {
             this.showView('dashboard');
             this.updateDashboard();
+            this.updateWeeklyGoals();
         });
 
         const modal = document.getElementById('timer-modal');
@@ -62,6 +64,9 @@ class TimerManager {
                 this.hideTimerModal();
             }
         });
+        
+        // Goals modal setup
+        this.setupGoalsModal();
     }
 
     setupHeartbeatSystem() {
@@ -805,8 +810,206 @@ class TimerManager {
         setInterval(() => {
             if (document.getElementById('dashboard-view').classList.contains('active')) {
                 this.updateDashboard();
+                this.updateWeeklyGoals();
             }
         }, 5000);
+    }
+    
+    setupGoalsModal() {
+        const setGoalsBtn = document.getElementById('set-goals-btn');
+        const goalsModal = document.getElementById('goals-modal');
+        const closeBtn = goalsModal.querySelector('.close');
+        const saveGoalsBtn = document.getElementById('save-goals-btn');
+        const cancelGoalsBtn = document.getElementById('cancel-goals-btn');
+        const addGoalBtn = document.getElementById('add-goal-btn');
+        
+        if (setGoalsBtn) {
+            setGoalsBtn.addEventListener('click', () => this.showGoalsModal());
+        }
+        
+        closeBtn.addEventListener('click', () => this.hideGoalsModal());
+        cancelGoalsBtn.addEventListener('click', () => this.hideGoalsModal());
+        saveGoalsBtn.addEventListener('click', () => this.saveGoalsFromModal());
+        addGoalBtn.addEventListener('click', () => this.addNewGoalInput());
+        
+        window.addEventListener('click', (e) => {
+            if (e.target === goalsModal) {
+                this.hideGoalsModal();
+            }
+        });
+    }
+    
+    showGoalsModal() {
+        const modal = document.getElementById('goals-modal');
+        modal.style.display = 'block';
+        this.loadGoalsIntoModal();
+    }
+    
+    hideGoalsModal() {
+        const modal = document.getElementById('goals-modal');
+        modal.style.display = 'none';
+    }
+    
+    loadGoalsIntoModal() {
+        const goalsList = document.getElementById('goals-list');
+        const goals = JSON.parse(localStorage.getItem('weeklyGoals') || '{}');
+        const projectData = JSON.parse(localStorage.getItem('projectData') || '{}');
+        
+        goalsList.innerHTML = '';
+        
+        // Add existing projects first
+        Object.keys(projectData).forEach(projectName => {
+            const existingGoal = goals[projectName] || 0;
+            const div = document.createElement('div');
+            div.className = 'goal-input-item';
+            div.innerHTML = `
+                <input type="text" value="${projectName}" readonly style="background: var(--bg-secondary); cursor: not-allowed;">
+                <input type="number" value="${existingGoal}" min="0" step="0.5" data-project="${projectName}">
+                <button onclick="this.parentElement.remove()">×</button>
+            `;
+            goalsList.appendChild(div);
+        });
+        
+        // Add goals for projects that no longer exist
+        Object.keys(goals).forEach(projectName => {
+            if (!projectData[projectName]) {
+                const div = document.createElement('div');
+                div.className = 'goal-input-item';
+                div.innerHTML = `
+                    <input type="text" value="${projectName}" readonly style="background: var(--bg-secondary); cursor: not-allowed;">
+                    <input type="number" value="${goals[projectName]}" min="0" step="0.5" data-project="${projectName}">
+                    <button onclick="this.parentElement.remove()">×</button>
+                `;
+                goalsList.appendChild(div);
+            }
+        });
+    }
+    
+    addNewGoalInput() {
+        const projectName = document.getElementById('new-goal-project').value.trim();
+        const hours = parseFloat(document.getElementById('new-goal-hours').value) || 0;
+        
+        if (!projectName || hours <= 0) {
+            alert('Please enter a valid project name and hours');
+            return;
+        }
+        
+        const goalsList = document.getElementById('goals-list');
+        const existingInputs = goalsList.querySelectorAll('input[type="text"]');
+        
+        // Check if project already exists
+        for (let input of existingInputs) {
+            if (input.value === projectName) {
+                alert('Goal for this project already exists');
+                return;
+            }
+        }
+        
+        const div = document.createElement('div');
+        div.className = 'goal-input-item';
+        div.innerHTML = `
+            <input type="text" value="${projectName}" readonly style="background: var(--bg-secondary); cursor: not-allowed;">
+            <input type="number" value="${hours}" min="0" step="0.5" data-project="${projectName}">
+            <button onclick="this.parentElement.remove()">×</button>
+        `;
+        goalsList.appendChild(div);
+        
+        // Clear inputs
+        document.getElementById('new-goal-project').value = '';
+        document.getElementById('new-goal-hours').value = '';
+    }
+    
+    saveGoalsFromModal() {
+        const goals = {};
+        const goalInputs = document.querySelectorAll('#goals-list .goal-input-item');
+        
+        goalInputs.forEach(item => {
+            const projectInput = item.querySelector('input[type="text"]');
+            const hoursInput = item.querySelector('input[type="number"]');
+            
+            if (projectInput && hoursInput) {
+                const projectName = projectInput.value;
+                const hours = parseFloat(hoursInput.value) || 0;
+                
+                if (hours > 0) {
+                    goals[projectName] = hours;
+                }
+            }
+        });
+        
+        localStorage.setItem('weeklyGoals', JSON.stringify(goals));
+        this.hideGoalsModal();
+        this.updateWeeklyGoals();
+    }
+    
+    updateWeeklyGoals() {
+        const container = document.getElementById('weekly-goals-list');
+        if (!container) return;
+        
+        const goals = JSON.parse(localStorage.getItem('weeklyGoals') || '{}');
+        const projectData = JSON.parse(localStorage.getItem('projectData') || '{}');
+        
+        if (Object.keys(goals).length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No weekly goals set. Click "Set Goals" to add some!</p>';
+            return;
+        }
+        
+        // Get current week's data
+        const weekStart = this.getWeekStart();
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 7);
+        
+        let html = '';
+        
+        Object.entries(goals).forEach(([projectName, goalHours]) => {
+            const project = projectData[projectName] || { color: '#6b7280', dailyTime: {} };
+            
+            // Calculate time spent this week
+            let weeklyTime = 0;
+            for (let d = new Date(weekStart); d < weekEnd; d.setDate(d.getDate() + 1)) {
+                const dateStr = d.toDateString();
+                weeklyTime += project.dailyTime?.[dateStr] || 0;
+            }
+            
+            const hoursSpent = weeklyTime / 3600;
+            const percentage = Math.min((hoursSpent / goalHours) * 100, 150);
+            const remaining = Math.max(0, goalHours - hoursSpent);
+            
+            let progressClass = '';
+            if (percentage >= 100) {
+                progressClass = 'completed';
+            } else if (percentage >= 80) {
+                progressClass = '';
+            }
+            
+            html += `
+                <div class="goal-item">
+                    <div class="goal-header">
+                        <div class="goal-project-name">
+                            <span class="goal-project-color" style="background: ${project.color}"></span>
+                            ${projectName}
+                        </div>
+                        <div class="goal-time">${hoursSpent.toFixed(1)} / ${goalHours}h</div>
+                    </div>
+                    <div class="goal-progress-bar">
+                        <div class="goal-progress-fill ${progressClass}" style="width: ${percentage}%"></div>
+                    </div>
+                    <div class="goal-stats">
+                        <span>${percentage.toFixed(0)}% complete</span>
+                        <span>${remaining > 0 ? `${remaining.toFixed(1)}h remaining` : '✓ Goal reached!'}</span>
+                    </div>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    getWeekStart() {
+        const now = new Date();
+        const day = now.getDay();
+        const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Sunday
+        return new Date(now.setDate(diff)).setHours(0, 0, 0, 0);
     }
 }
 
@@ -815,5 +1018,5 @@ document.addEventListener('DOMContentLoaded', () => {
         Notification.requestPermission();
     }
 
-    new TimerManager();
+    window.timerManager = new TimerManager();
 });

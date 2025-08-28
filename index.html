@@ -45,6 +45,10 @@
                         <h2>Project Details</h2>
                         <div id="projects-details" class="projects-details"></div>
                     </div>
+                    <div class="weekly-goals">
+                        <h2>Weekly Goals <button id="set-goals-btn" class="secondary-btn" style="float: right; font-size: 0.8rem; padding: 0.3rem 0.6rem;">Set Goals</button></h2>
+                        <div id="weekly-goals-list" class="weekly-goals-list"></div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -113,6 +117,29 @@
                 <div class="modal-actions">
                     <button id="save-timer-btn" class="primary-btn">Save Timer</button>
                     <button id="cancel-timer-btn" class="secondary-btn">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="goals-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Set Weekly Goals</h2>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Set your weekly time goals for each project (in hours)</label>
+                    <div id="goals-list" class="goals-list"></div>
+                    <div class="add-goal-section">
+                        <input type="text" id="new-goal-project" placeholder="Project name">
+                        <input type="number" id="new-goal-hours" placeholder="Hours per week" min="0.5" step="0.5">
+                        <button id="add-goal-btn" class="secondary-btn">Add Goal</button>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button id="save-goals-btn" class="primary-btn">Save Goals</button>
+                    <button id="cancel-goals-btn" class="secondary-btn">Cancel</button>
                 </div>
             </div>
         </div>
