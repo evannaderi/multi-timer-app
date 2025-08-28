@@ -196,6 +196,7 @@ class TimerManager {
             document.getElementById('infinite-repeat').checked = timer.infiniteRepeat;
             document.getElementById('repeat-cycles').value = timer.totalCycles > 0 ? timer.totalCycles : 1;
             document.getElementById('repeat-cycles').disabled = timer.infiniteRepeat;
+            document.getElementById('auto-start').checked = timer.autoStart !== undefined ? timer.autoStart : true;
             document.getElementById('work-notification-text').value = timer.workNotificationText || '';
             document.getElementById('break-notification-text').value = timer.breakNotificationText || '';
             this.renderIntervals(timer.intervals);
@@ -206,6 +207,7 @@ class TimerManager {
             document.getElementById('infinite-repeat').checked = true;
             document.getElementById('repeat-cycles').value = 1;
             document.getElementById('repeat-cycles').disabled = true;
+            document.getElementById('auto-start').checked = true; // Default to auto-start enabled
             document.getElementById('work-notification-text').value = '';
             document.getElementById('break-notification-text').value = '';
             // Check if user wants 20-20-20 rule preset
@@ -360,6 +362,7 @@ class TimerManager {
         const intervals = this.getIntervalsFromModal();
         const infiniteRepeat = document.getElementById('infinite-repeat').checked;
         const totalCycles = infiniteRepeat ? -1 : (parseInt(document.getElementById('repeat-cycles').value) || 1);
+        const autoStart = document.getElementById('auto-start').checked;
         const workNotificationText = document.getElementById('work-notification-text').value || '';
         const breakNotificationText = document.getElementById('break-notification-text').value || '';
 
@@ -371,6 +374,7 @@ class TimerManager {
             timer.updateIntervals(intervals);
             timer.updateCycles(totalCycles);
             timer.infiniteRepeat = infiniteRepeat;
+            timer.autoStart = autoStart;
             timer.workNotificationText = workNotificationText;
             timer.breakNotificationText = breakNotificationText;
         } else {
@@ -381,6 +385,7 @@ class TimerManager {
                 intervals,
                 totalCycles,
                 infiniteRepeat,
+                autoStart,
                 workNotificationText,
                 breakNotificationText,
                 onUpdate: () => this.updateTimerDisplay(timer.id),

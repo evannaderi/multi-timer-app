@@ -38,6 +38,7 @@ class Timer {
         this.currentCycle = 1;
         this.totalCycles = config.totalCycles || -1; // -1 means infinite
         this.infiniteRepeat = config.infiniteRepeat !== undefined ? config.infiniteRepeat : true;
+        this.autoStart = config.autoStart !== undefined ? config.autoStart : true; // Auto-start next interval by default
         this.workNotificationText = config.workNotificationText || '';
         this.breakNotificationText = config.breakNotificationText || '';
         this.remainingTime = this.intervals[0].duration;
@@ -310,6 +311,27 @@ class Timer {
         }
         
         this.remainingTime = this.intervals[this.currentIntervalIndex].duration;
+        
+        // Auto-start next interval if enabled
+        if (this.autoStart && this.isRunning) {
+            // Update Web Worker with new duration
+            if (this.useWorker) {
+                this.worker.postMessage({
+                    type: 'updateDuration',
+                    id: this.id,
+                    data: { duration: this.remainingTime }
+                });
+                this.worker.postMessage({
+                    type: 'start',
+                    id: this.id
+                });
+            }
+            // Timer continues running automatically
+            console.log(`Auto-starting next interval: ${this.getCurrentInterval().label}`);
+        } else {
+            // Stop and wait for manual start
+            this.pause();
+        }
     }
 
     complete() {
@@ -368,6 +390,7 @@ class Timer {
             intervals: this.intervals,
             totalCycles: this.totalCycles,
             infiniteRepeat: this.infiniteRepeat,
+            autoStart: this.autoStart,
             workNotificationText: this.workNotificationText,
             breakNotificationText: this.breakNotificationText,
             currentIntervalIndex: this.currentIntervalIndex,
@@ -407,6 +430,7 @@ class Timer {
             intervals: data.intervals,
             totalCycles: data.totalCycles,
             infiniteRepeat: data.infiniteRepeat !== undefined ? data.infiniteRepeat : true,
+            autoStart: data.autoStart !== undefined ? data.autoStart : true,
             workNotificationText: data.workNotificationText || '',
             breakNotificationText: data.breakNotificationText || '',
             ...callbacks
