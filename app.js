@@ -12,7 +12,10 @@ class TimerManager {
         this.setupHeartbeatSystem();
         this.renderAllTimers();
         this.updateDashboard();
-        this.updateWeeklyGoals();
+        // Only update weekly goals if dashboard is visible
+        if (document.getElementById('dashboard-view')?.classList.contains('active')) {
+            this.updateWeeklyGoals();
+        }
         this.startDashboardUpdater();
     }
 
@@ -184,6 +187,12 @@ class TimerManager {
 
         document.getElementById(`${viewName}-view`).classList.add('active');
         document.getElementById(`${viewName}-view-btn`).classList.add('active');
+        
+        // Update dashboard when switching to it
+        if (viewName === 'dashboard') {
+            this.updateDashboard();
+            this.updateWeeklyGoals();
+        }
     }
 
     showTimerModal(timerId = null) {
@@ -539,6 +548,13 @@ class TimerManager {
             const timer = this.timers.get(timerId);
             timer.stop();
             this.updateTimerDisplay(timerId);
+            // Update dashboard when timer stops
+            if (document.getElementById('dashboard-view')?.classList.contains('active')) {
+                setTimeout(() => {
+                    this.updateDashboard();
+                    this.updateWeeklyGoals();
+                }, 100); // Small delay to ensure localStorage is updated
+            }
         });
     }
 
@@ -592,6 +608,11 @@ class TimerManager {
         this.playNotificationSound('complete');
         const message = `${timer.name} complete!`;
         this.showNotification(message);
+        // Update dashboard when timer completes
+        if (document.getElementById('dashboard-view')?.classList.contains('active')) {
+            this.updateDashboard();
+            this.updateWeeklyGoals();
+        }
     }
 
     playNotificationSound(type) {
