@@ -722,10 +722,20 @@ class TimerManager {
             }
         });
 
-        // Also count projects from timers
+        // Add running timer time (not yet saved to localStorage)
         this.timers.forEach(timer => {
             if (timer.project) {
                 allProjects.add(timer.project);
+                
+                // Calculate running time for active timers
+                if (timer.isRunning && timer.sessionStartTime) {
+                    const runningTime = Math.floor((Date.now() - timer.sessionStartTime) / 1000);
+                    if (!projectTimes[timer.project]) {
+                        projectTimes[timer.project] = 0;
+                    }
+                    projectTimes[timer.project] += runningTime;
+                    totalTimeToday += runningTime;
+                }
             }
         });
 
@@ -833,7 +843,7 @@ class TimerManager {
                 this.updateDashboard();
                 this.updateWeeklyGoals();
             }
-        }, 5000);
+        }, 1000); // Update every second for real-time display
     }
     
     setupGoalsModal() {
@@ -985,12 +995,20 @@ class TimerManager {
         Object.entries(goals).forEach(([projectName, goalHours]) => {
             const project = projectData[projectName] || { color: '#6b7280', dailyTime: {} };
             
-            // Calculate time spent this week
+            // Calculate time spent this week from saved data
             let weeklyTime = 0;
             for (let d = new Date(weekStart); d < weekEnd; d.setDate(d.getDate() + 1)) {
                 const dateStr = d.toDateString();
                 weeklyTime += project.dailyTime?.[dateStr] || 0;
             }
+            
+            // Add currently running timer time for this project
+            this.timers.forEach(timer => {
+                if (timer.project === projectName && timer.isRunning && timer.sessionStartTime) {
+                    const runningTime = Math.floor((Date.now() - timer.sessionStartTime) / 1000);
+                    weeklyTime += runningTime;
+                }
+            });
             
             const hoursSpent = weeklyTime / 3600;
             const percentage = Math.min((hoursSpent / goalHours) * 100, 150);
