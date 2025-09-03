@@ -46,6 +46,7 @@ class Timer {
         this.isPaused = false;
         this.intervalId = null;
         this.sessionStartTime = null;
+        this.sessionElapsedTime = 0;  // Initialize to 0, not undefined
         this.totalTimeSpent = 0;
         this.lastTickTime = null;
         this.expectedTime = null;
@@ -113,6 +114,10 @@ class Timer {
         
         if (!this.sessionStartTime) {
             this.sessionStartTime = Date.now();
+            this.sessionElapsedTime = 0;
+        } else if (this.sessionElapsedTime > 0) {
+            // Resuming from pause - adjust session start time
+            this.sessionStartTime = Date.now() - (this.sessionElapsedTime * 1000);
         }
         
         // Always reset lastTickTime when starting/resuming
@@ -143,6 +148,12 @@ class Timer {
 
     pause() {
         if (!this.isRunning || this.isPaused) return;
+        
+        // Save elapsed time before pausing
+        if (this.sessionStartTime) {
+            this.sessionElapsedTime = Math.floor((Date.now() - this.sessionStartTime) / 1000);
+            console.log('Pausing timer - saving elapsed time:', this.sessionElapsedTime);
+        }
         
         this.isPaused = true;
         
