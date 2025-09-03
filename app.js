@@ -728,13 +728,15 @@ class TimerManager {
                 allProjects.add(timer.project);
                 
                 // Calculate running time for active timers
-                if (timer.isRunning && timer.sessionStartTime) {
-                    const runningTime = Math.floor((Date.now() - timer.sessionStartTime) / 1000);
-                    if (!projectTimes[timer.project]) {
-                        projectTimes[timer.project] = 0;
+                if (timer.isRunning && !timer.isPaused) {
+                    const runningTime = timer.getSessionTime();
+                    if (runningTime > 0) {
+                        if (!projectTimes[timer.project]) {
+                            projectTimes[timer.project] = 0;
+                        }
+                        projectTimes[timer.project] += runningTime;
+                        totalTimeToday += runningTime;
                     }
-                    projectTimes[timer.project] += runningTime;
-                    totalTimeToday += runningTime;
                 }
             }
         });
@@ -1004,9 +1006,11 @@ class TimerManager {
             
             // Add currently running timer time for this project
             this.timers.forEach(timer => {
-                if (timer.project === projectName && timer.isRunning && timer.sessionStartTime) {
-                    const runningTime = Math.floor((Date.now() - timer.sessionStartTime) / 1000);
-                    weeklyTime += runningTime;
+                if (timer.project === projectName && timer.isRunning && !timer.isPaused) {
+                    const runningTime = timer.getSessionTime();
+                    if (runningTime > 0) {
+                        weeklyTime += runningTime;
+                    }
                 }
             });
             

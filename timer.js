@@ -381,6 +381,14 @@ class Timer {
         this.totalCycles = cycles;
     }
 
+    getSessionTime() {
+        if (!this.sessionStartTime) return 0;
+        if (this.isPaused) {
+            return this.sessionElapsedTime;
+        }
+        return Math.floor((Date.now() - this.sessionStartTime) / 1000);
+    }
+    
     toJSON() {
         return {
             id: this.id,
@@ -398,6 +406,8 @@ class Timer {
             remainingTime: this.remainingTime,
             isRunning: this.isRunning,
             isPaused: this.isPaused,
+            sessionStartTime: this.sessionStartTime,
+            sessionElapsedTime: this.sessionElapsedTime,
             totalTimeSpent: this.totalTimeSpent
         };
     }
@@ -440,6 +450,8 @@ class Timer {
         timer.currentCycle = data.currentCycle || 1;
         timer.remainingTime = data.remainingTime || timer.intervals[0].duration;
         timer.totalTimeSpent = data.totalTimeSpent || 0;
+        timer.sessionStartTime = data.sessionStartTime || null;
+        timer.sessionElapsedTime = data.sessionElapsedTime || 0;
         
         if (data.isRunning && !data.isPaused) {
             timer.start();
