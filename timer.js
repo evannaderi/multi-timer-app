@@ -164,6 +164,8 @@ class Timer {
     }
 
     stop() {
+        console.log('Stop called - sessionStartTime:', this.sessionStartTime, 'sessionElapsedTime:', this.sessionElapsedTime, 'project:', this.project);
+        
         if (this.sessionStartTime || this.sessionElapsedTime > 0) {
             // Use getSessionTime to get the correct duration
             const sessionDuration = this.getSessionTime();
@@ -172,10 +174,14 @@ class Timer {
             if (sessionDuration > 0) {
                 this.totalTimeSpent += sessionDuration;
                 this.saveProjectTime(sessionDuration);
+            } else {
+                console.log('Duration was 0, not saving');
             }
             
             this.sessionStartTime = null;
             this.sessionElapsedTime = 0;
+        } else {
+            console.log('No session to stop');
         }
         
         this.isRunning = false;
@@ -399,11 +405,19 @@ class Timer {
     }
 
     getSessionTime() {
-        if (!this.sessionStartTime) return 0;
+        console.log('getSessionTime called - sessionStartTime:', this.sessionStartTime, 'isPaused:', this.isPaused, 'sessionElapsedTime:', this.sessionElapsedTime);
+        
+        if (!this.sessionStartTime) {
+            console.log('No sessionStartTime, returning 0');
+            return 0;
+        }
         if (this.isPaused) {
+            console.log('Timer is paused, returning sessionElapsedTime:', this.sessionElapsedTime);
             return this.sessionElapsedTime;
         }
-        return Math.floor((Date.now() - this.sessionStartTime) / 1000);
+        const duration = Math.floor((Date.now() - this.sessionStartTime) / 1000);
+        console.log('Timer is running, calculated duration:', duration);
+        return duration;
     }
     
     toJSON() {

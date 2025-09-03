@@ -545,8 +545,10 @@ class TimerManager {
             this.updateTimerDisplay(timerId);
         });
         if (stopBtn) stopBtn.addEventListener('click', () => {
+            console.log('Stop button clicked for timer:', timerId);
             const timer = this.timers.get(timerId);
             const hadProject = timer.project;
+            console.log('Timer found:', timer, 'project:', hadProject);
             timer.stop();
             this.updateTimerDisplay(timerId);
             
