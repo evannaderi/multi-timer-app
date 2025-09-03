@@ -33,6 +33,29 @@ class TimerManager {
             this.updateDashboard();
             this.updateWeeklyGoals();
         });
+        
+        // Use event delegation for timer controls to avoid losing listeners
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('stop-btn')) {
+                const timerId = e.target.dataset.id;
+                console.log('Stop button clicked (delegated) for timer:', timerId);
+                const timer = this.timers.get(timerId);
+                if (timer) {
+                    console.log('Timer found:', timer, 'project:', timer.project);
+                    timer.stop();
+                    this.updateTimerDisplay(timerId);
+                    
+                    // Force dashboard update after stop
+                    if (timer.project) {
+                        setTimeout(() => {
+                            console.log('Updating dashboard after stop');
+                            this.updateDashboard();
+                            this.updateWeeklyGoals();
+                        }, 200);
+                    }
+                }
+            }
+        });
 
         const modal = document.getElementById('timer-modal');
         const closeBtn = modal.querySelector('.close');
@@ -544,24 +567,8 @@ class TimerManager {
             timer.pause();
             this.updateTimerDisplay(timerId);
         });
-        if (stopBtn) stopBtn.addEventListener('click', () => {
-            console.log('Stop button clicked for timer:', timerId);
-            const timer = this.timers.get(timerId);
-            const hadProject = timer.project;
-            console.log('Timer found:', timer, 'project:', hadProject);
-            timer.stop();
-            this.updateTimerDisplay(timerId);
-            
-            // Force dashboard update after localStorage is written
-            if (hadProject) {
-                // Give localStorage time to write, then update dashboard
-                setTimeout(() => {
-                    console.log('Updating dashboard after stop');
-                    this.updateDashboard();
-                    this.updateWeeklyGoals();
-                }, 200); // Increased delay to ensure localStorage is fully written
-            }
-        });
+        // Stop button is handled by event delegation in setupEventListeners
+        // to avoid losing the handler when controls are updated
     }
 
     updateTimerDisplay(timerId) {
@@ -580,14 +587,25 @@ class TimerManager {
         progressFill.className = `progress-fill ${currentInterval.type}`;
 
         const controlsDiv = element.querySelector('.timer-controls');
-        controlsDiv.innerHTML = `
-            ${timer.getStatus() === 'running' 
-                ? `<button class="control-btn pause-btn" data-id="${timer.id}">Pause</button>`
-                : `<button class="control-btn start-btn" data-id="${timer.id}">Start</button>`
-            }
-            <button class="control-btn stop-btn" data-id="${timer.id}">Reset</button>
-        `;
-        this.attachTimerEventListeners(element, timerId);
+        const currentStartBtn = controlsDiv.querySelector('.start-btn');
+        const currentPauseBtn = controlsDiv.querySelector('.pause-btn');
+        
+        // Only update controls if state changed
+        if (timer.getStatus() === 'running' && currentStartBtn) {
+            // Replace start with pause
+            controlsDiv.innerHTML = `
+                <button class="control-btn pause-btn" data-id="${timer.id}">Pause</button>
+                <button class="control-btn stop-btn" data-id="${timer.id}">Reset</button>
+            `;
+            this.attachTimerEventListeners(element, timerId);
+        } else if (timer.getStatus() !== 'running' && currentPauseBtn) {
+            // Replace pause with start
+            controlsDiv.innerHTML = `
+                <button class="control-btn start-btn" data-id="${timer.id}">Start</button>
+                <button class="control-btn stop-btn" data-id="${timer.id}">Reset</button>
+            `;
+            this.attachTimerEventListeners(element, timerId);
+        }
 
         const intervalTags = element.querySelectorAll('.interval-tag');
         intervalTags.forEach((tag, i) => {
