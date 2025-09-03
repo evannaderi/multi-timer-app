@@ -546,13 +546,19 @@ class TimerManager {
         });
         if (stopBtn) stopBtn.addEventListener('click', () => {
             const timer = this.timers.get(timerId);
+            const hadProject = timer.project;
             timer.stop();
             this.updateTimerDisplay(timerId);
-            // Force immediate dashboard update when timer stops
-            setTimeout(() => {
-                this.updateDashboard();
-                this.updateWeeklyGoals();
-            }, 50); // Small delay to ensure localStorage is updated
+            
+            // Force dashboard update after localStorage is written
+            if (hadProject) {
+                // Give localStorage time to write, then update dashboard
+                setTimeout(() => {
+                    console.log('Updating dashboard after stop');
+                    this.updateDashboard();
+                    this.updateWeeklyGoals();
+                }, 200); // Increased delay to ensure localStorage is fully written
+            }
         });
     }
 
@@ -702,6 +708,8 @@ class TimerManager {
     updateDashboard() {
         const projectData = JSON.parse(localStorage.getItem('projectData') || '{}');
         const today = new Date().toDateString();
+        console.log('Dashboard update - Project data from localStorage:', projectData);
+        console.log('Today is:', today);
         
         let totalTimeToday = 0;
         let sessionsToday = 0;

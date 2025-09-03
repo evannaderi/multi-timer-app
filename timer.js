@@ -164,11 +164,18 @@ class Timer {
     }
 
     stop() {
-        if (this.sessionStartTime) {
-            const sessionDuration = Math.floor((Date.now() - this.sessionStartTime) / 1000);
-            this.totalTimeSpent += sessionDuration;
-            this.saveProjectTime(sessionDuration);
+        if (this.sessionStartTime || this.sessionElapsedTime > 0) {
+            // Use getSessionTime to get the correct duration
+            const sessionDuration = this.getSessionTime();
+            console.log('Stopping timer, saving duration:', sessionDuration, 'for project:', this.project);
+            
+            if (sessionDuration > 0) {
+                this.totalTimeSpent += sessionDuration;
+                this.saveProjectTime(sessionDuration);
+            }
+            
             this.sessionStartTime = null;
+            this.sessionElapsedTime = 0;
         }
         
         this.isRunning = false;
@@ -199,7 +206,12 @@ class Timer {
     }
 
     saveProjectTime(duration) {
-        if (!this.project) return;
+        if (!this.project) {
+            console.log('No project assigned, not saving time');
+            return;
+        }
+        
+        console.log('Saving project time:', duration, 'seconds for project:', this.project);
         
         const projectData = JSON.parse(localStorage.getItem('projectData') || '{}');
         const today = new Date().toDateString();
@@ -235,6 +247,7 @@ class Timer {
         }
         
         localStorage.setItem('projectData', JSON.stringify(projectData));
+        console.log('Project data saved to localStorage:', projectData[this.project]);
     }
 
     tick() {
