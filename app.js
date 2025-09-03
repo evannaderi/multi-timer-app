@@ -548,13 +548,11 @@ class TimerManager {
             const timer = this.timers.get(timerId);
             timer.stop();
             this.updateTimerDisplay(timerId);
-            // Update dashboard when timer stops
-            if (document.getElementById('dashboard-view')?.classList.contains('active')) {
-                setTimeout(() => {
-                    this.updateDashboard();
-                    this.updateWeeklyGoals();
-                }, 100); // Small delay to ensure localStorage is updated
-            }
+            // Force immediate dashboard update when timer stops
+            setTimeout(() => {
+                this.updateDashboard();
+                this.updateWeeklyGoals();
+            }, 50); // Small delay to ensure localStorage is updated
         });
     }
 
@@ -714,8 +712,11 @@ class TimerManager {
         Object.entries(projectData).forEach(([project, data]) => {
             allProjects.add(project);
             if (data.dailyTime && data.dailyTime[today]) {
-                totalTimeToday += data.dailyTime[today];
-                projectTimes[project] = data.dailyTime[today];
+                const savedTime = data.dailyTime[today];
+                if (savedTime > 0) {
+                    totalTimeToday += savedTime;
+                    projectTimes[project] = savedTime;
+                }
             }
             if (data.sessions && data.sessions[today]) {
                 sessionsToday += data.sessions[today].length;

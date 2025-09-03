@@ -224,11 +224,15 @@ class Timer {
         if (!projectData[this.project].sessions[today]) {
             projectData[this.project].sessions[today] = [];
         }
-        projectData[this.project].sessions[today].push({
-            duration,
-            timestamp: Date.now(),
-            timerName: this.name
-        });
+        
+        // Only add session if duration > 0 (don't count immediate stop)
+        if (duration > 0) {
+            projectData[this.project].sessions[today].push({
+                duration,
+                timestamp: Date.now(),
+                timerName: this.name
+            });
+        }
         
         localStorage.setItem('projectData', JSON.stringify(projectData));
     }
