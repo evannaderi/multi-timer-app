@@ -36,23 +36,49 @@ class TimerManager {
         
         // Use event delegation for timer controls to avoid losing listeners
         document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('stop-btn')) {
-                const timerId = e.target.dataset.id;
-                console.log('Stop button clicked (delegated) for timer:', timerId);
+            // Check if clicked element or its parent is a stop button
+            const stopBtn = e.target.closest('.stop-btn');
+            if (stopBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                const timerId = stopBtn.dataset.id;
+                console.log('STOP BUTTON CLICKED for timer:', timerId);
                 const timer = this.timers.get(timerId);
                 if (timer) {
-                    console.log('Timer found:', timer, 'project:', timer.project);
+                    console.log('Timer found - project:', timer.project, 'isRunning:', timer.isRunning);
                     timer.stop();
                     this.updateTimerDisplay(timerId);
                     
                     // Force dashboard update after stop
-                    if (timer.project) {
-                        setTimeout(() => {
-                            console.log('Updating dashboard after stop');
-                            this.updateDashboard();
-                            this.updateWeeklyGoals();
-                        }, 200);
-                    }
+                    setTimeout(() => {
+                        console.log('Updating dashboard after stop');
+                        this.updateDashboard();
+                        this.updateWeeklyGoals();
+                    }, 500);
+                }
+            }
+            
+            // Handle start button
+            const startBtn = e.target.closest('.start-btn');
+            if (startBtn) {
+                e.preventDefault();
+                const timerId = startBtn.dataset.id;
+                const timer = this.timers.get(timerId);
+                if (timer) {
+                    timer.start();
+                    this.updateTimerDisplay(timerId);
+                }
+            }
+            
+            // Handle pause button
+            const pauseBtn = e.target.closest('.pause-btn');
+            if (pauseBtn) {
+                e.preventDefault();
+                const timerId = pauseBtn.dataset.id;
+                const timer = this.timers.get(timerId);
+                if (timer) {
+                    timer.pause();
+                    this.updateTimerDisplay(timerId);
                 }
             }
         });
@@ -557,18 +583,8 @@ class TimerManager {
                 this.deleteTimer(timerId);
             }
         });
-        if (startBtn) startBtn.addEventListener('click', () => {
-            const timer = this.timers.get(timerId);
-            timer.start();
-            this.updateTimerDisplay(timerId);
-        });
-        if (pauseBtn) pauseBtn.addEventListener('click', () => {
-            const timer = this.timers.get(timerId);
-            timer.pause();
-            this.updateTimerDisplay(timerId);
-        });
-        // Stop button is handled by event delegation in setupEventListeners
-        // to avoid losing the handler when controls are updated
+        // All control buttons are handled by event delegation in setupEventListeners
+        // to avoid losing handlers when controls are updated
     }
 
     updateTimerDisplay(timerId) {
@@ -751,20 +767,21 @@ class TimerManager {
             }
         });
 
-        // Add running timer time (not yet saved to localStorage)
+        // Add running AND paused timer time (not yet saved to localStorage)
         this.timers.forEach(timer => {
             if (timer.project) {
                 allProjects.add(timer.project);
                 
-                // Calculate running time for active timers
-                if (timer.isRunning && !timer.isPaused) {
-                    const runningTime = timer.getSessionTime();
-                    if (runningTime > 0) {
+                // Calculate time for both running AND paused timers with active sessions
+                if (timer.isRunning || timer.isPaused) {
+                    const sessionTime = timer.getSessionTime();
+                    if (sessionTime > 0) {
                         if (!projectTimes[timer.project]) {
                             projectTimes[timer.project] = 0;
                         }
-                        projectTimes[timer.project] += runningTime;
-                        totalTimeToday += runningTime;
+                        projectTimes[timer.project] += sessionTime;
+                        totalTimeToday += sessionTime;
+                        console.log(`Adding ${timer.isPaused ? 'paused' : 'running'} timer time: ${sessionTime}s for project: ${timer.project}`);
                     }
                 }
             }
@@ -1033,12 +1050,12 @@ class TimerManager {
                 weeklyTime += project.dailyTime?.[dateStr] || 0;
             }
             
-            // Add currently running timer time for this project
+            // Add currently running OR paused timer time for this project
             this.timers.forEach(timer => {
-                if (timer.project === projectName && timer.isRunning && !timer.isPaused) {
-                    const runningTime = timer.getSessionTime();
-                    if (runningTime > 0) {
-                        weeklyTime += runningTime;
+                if (timer.project === projectName && (timer.isRunning || timer.isPaused)) {
+                    const sessionTime = timer.getSessionTime();
+                    if (sessionTime > 0) {
+                        weeklyTime += sessionTime;
                     }
                 }
             });
